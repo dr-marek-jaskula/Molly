@@ -8,6 +8,7 @@ public interface ISecretary
 {
     Task<string> Listen();
     Task Speak(string text);
+    Task SearchCommands(string recognizedText, string symSpellKey, bool useMollyName = true);
 }
 
 public abstract class BaseSecretary : ISecretary
@@ -17,21 +18,25 @@ public abstract class BaseSecretary : ISecretary
     public readonly string SpeakLanguage = "en";
     public readonly string Voice = "en-US-AshleyNeural";
     protected readonly AuthenticationSettings _settings;
-    protected readonly SymSpell _symSpellCommands;
-    protected readonly SymSpell _symSpellName;
+    public readonly Dictionary<string, SymSpell> _symSpells = new();
     protected readonly SpeechConfig _listenConfig;
     protected readonly SpeechConfig _speakConfig;
 
-    public BaseSecretary(AuthenticationSettings settings, SymSpell symSpellCommands)
+    public BaseSecretary(AuthenticationSettings settings)
     {
         _settings = settings;
-        _symSpellCommands = symSpellCommands;
-        _symSpellName = SymSpellFactory.CreateSymSpell(new() { Name });
+        _symSpells.Add("commands", SymSpellFactory.CreateSymSpell(@$"{GeneralSettings.Path}\SymSpell\commands.txt", 4));
+        _symSpells.Add("name", SymSpellFactory.CreateSymSpell(new() { Name }));
+        _symSpells.Add("continue", SymSpellFactory.CreateSymSpell(new() { "yes", "no" }));
+        _symSpells.Add("newLine", SymSpellFactory.CreateSymSpell(new() { "new", "line" }));
+        _symSpells.Add("mailTargets", SymSpellFactory.CreateSymSpell(@$"{GeneralSettings.Path}\SymSpell\mailTargets.txt", 4));
+        _symSpells.Add("title", SymSpellFactory.CreateSymSpell(new() { "title", "is" }));
+        _symSpells.Add("body", SymSpellFactory.CreateSymSpell(new() { "body", "is" }));
         _speakConfig = ConfigureSpeaking();
         _listenConfig = ConfigureListening();
     }
 
-    public BaseSecretary(AuthenticationSettings settings, SymSpell symSpellCommands, string language, string voice, string listenLanguage) : this(settings, symSpellCommands)
+    public BaseSecretary(AuthenticationSettings settings, string language, string voice, string listenLanguage) : this(settings)
     {
         SpeakLanguage = language;
         Voice = voice;
@@ -56,17 +61,20 @@ public abstract class BaseSecretary : ISecretary
     public abstract Task<string> Listen();
 
     public abstract Task Speak(string text);
+    public abstract Task SearchCommands(string recognizedText, string symSpellKey, bool useMollyName = true);
 }
 
 public class Secretary : BaseSecretary
 {
-    public Secretary(AuthenticationSettings settings, SymSpell symSpellCommands) 
-        : base(settings, symSpellCommands)
+    private int _writeMail = 0;
+
+    public Secretary(AuthenticationSettings settings) 
+        : base(settings)
     {
     }
 
-    public Secretary(AuthenticationSettings settings, SymSpell symSpellCommands, string language, string voice, string listenLanguage) 
-        : base(settings, symSpellCommands, language, voice, listenLanguage)
+    public Secretary(AuthenticationSettings settings, string language, string voice, string listenLanguage) 
+        : base(settings, language, voice, listenLanguage)
     {
     }
 
@@ -77,8 +85,6 @@ public class Secretary : BaseSecretary
 
         var recognizedSpeech = await recognizer.RecognizeOnceAsync();
 
-        SearchCommands(recognizedSpeech.Text);
-
         return recognizedSpeech.Text;
     }
 
@@ -88,28 +94,135 @@ public class Secretary : BaseSecretary
         await speechSynthesizer.SpeakTextAsync(text);
     }
 
-    private void SearchCommands(string recognizedText)
+    public override async Task SearchCommands(string recognizedText, string symSpellKey, bool useMollyName = true)
     {
         var listOfWords = Helpers.SplitToWords(recognizedText);
 
         if (!listOfWords.Any())
             return;
 
-        if ("Molly" != Helpers.Capitalize(SymSpellAlgorithm.FindBestSuggestion(listOfWords.First(), _symSpellName)))
-            return;
+        if (useMollyName)
+        {
+            if ("Molly" != Helpers.Capitalize(SymSpellAlgorithm.FindBestSuggestion(listOfWords.First(), _symSpells["name"])))
+                return;
 
-        listOfWords.RemoveAt(0);
+            listOfWords.RemoveAt(0);
+        }
 
         string command;
 
         foreach (string word in listOfWords)
         {
-            command = SymSpellAlgorithm.FindBestSuggestion(word, _symSpellCommands);
+            command = SymSpellAlgorithm.FindBestSuggestion(word, _symSpells[symSpellKey]);
 
             if (string.IsNullOrEmpty(command))
                 continue;
 
-            Console.WriteLine("Recognized command!");
+            await ExecuteCommand(command);
         }
+    }
+
+    private async Task ExecuteCommand(string command)
+    {
+        if (command == "hello")
+            await Speak("Hello Marek. How are you?");
+        else if (command == "goodbye")
+        {
+            await Speak("Goodbye Marek. See you next time?");
+            System.Environment.Exit(0);
+        }
+        else if (command == "write")
+        {
+            _writeMail++;
+        }
+        else if (command == "mail")
+        {
+            _writeMail++;
+        }
+
+        if (_writeMail == 2)
+        {
+            _writeMail = 0;
+            await WriteMail();
+        }
+    }
+
+    private async Task WriteMail()
+    {
+        string mail = string.Empty;
+
+        await Speak("Please, give the mail target");
+        do
+        {
+            var listenToMailTarget = Helpers.SplitToWords(await Listen());
+
+            if (!listenToMailTarget.Any())
+                continue;
+
+            foreach (string word in listenToMailTarget)
+            {
+                mail = SymSpellAlgorithm.FindBestSuggestion(word, _symSpells["mailTargets"]);
+
+                if (string.IsNullOrEmpty(mail))
+                    continue;
+            }
+
+        } while (string.IsNullOrEmpty(mail));
+
+        await Speak($"The mail target is: {mail}");
+
+        await Speak("Please, give the mail title");
+
+        string mailTitle = string.Empty;
+        string searchForTitileIs;
+
+        do
+        {
+            var listenToMailTitle = Helpers.SplitToWords(await Listen());
+
+            if (!listenToMailTitle.Any())
+                continue;
+
+            foreach (string word in listenToMailTitle)
+            {
+                mailTitle = $"{mailTitle} {word}";
+
+                searchForTitileIs = SymSpellAlgorithm.FindBestSuggestion(word, _symSpells["title"]);
+                
+                if (searchForTitileIs == "title")
+                    mailTitle = string.Empty;
+                else if (searchForTitileIs == "is")
+                    mailTitle = string.Empty;
+            }
+
+        } while (string.IsNullOrEmpty(mailTitle));
+
+        await Speak($"The mail title is: {mailTitle}");
+
+        await Speak("Please, give the mail body");
+        string mailBody = string.Empty;
+
+        do
+        {
+            var listenToMailBody = Helpers.SplitToWords(await Listen());
+
+            if (!listenToMailBody.Any())
+                continue;
+
+            foreach (string word in listenToMailBody)
+            {
+                mailBody = $"{mailBody} {word}";
+
+                searchForTitileIs = SymSpellAlgorithm.FindBestSuggestion(word, _symSpells["body"]);
+
+                if (searchForTitileIs == "body")
+                    mailBody = string.Empty;
+                else if (searchForTitileIs == "is")
+                    mailBody = string.Empty;
+            }
+
+        } while (string.IsNullOrEmpty(mailBody));
+
+        await Speak($"The mail body is: {mailBody}");
     }
 }
