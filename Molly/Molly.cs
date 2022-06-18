@@ -149,58 +149,18 @@ public class Secretary : BaseSecretary
 
     private async Task WriteMail()
     {
-        string mail = string.Empty;
 
         await Speak("Please, give the mail target");
-        do
-        {
-            var listenToMailTarget = Helpers.SplitToWords(await Listen());
-
-            if (!listenToMailTarget.Any())
-                continue;
-
-            foreach (string word in listenToMailTarget)
-            {
-                mail = SymSpellAlgorithm.FindBestSuggestion(word, _symSpells["mailTargets"]);
-
-                if (string.IsNullOrEmpty(mail))
-                    continue;
-            }
-
-        } while (string.IsNullOrEmpty(mail));
-
-        await Speak($"The mail target is: {mail}");
+        var mailTarget = await GetAnswer("mailTargets");
+        await Speak($"The mail target is: {mailTarget}");
 
         await Speak("Please, give the mail title");
-
-        string mailTitle = string.Empty;
-        string searchForTitileIs;
-
-        do
-        {
-            var listenToMailTitle = Helpers.SplitToWords(await Listen());
-
-            if (!listenToMailTitle.Any())
-                continue;
-
-            foreach (string word in listenToMailTitle)
-            {
-                mailTitle = $"{mailTitle} {word}";
-
-                searchForTitileIs = SymSpellAlgorithm.FindBestSuggestion(word, _symSpells["title"]);
-                
-                if (searchForTitileIs == "title")
-                    mailTitle = string.Empty;
-                else if (searchForTitileIs == "is")
-                    mailTitle = string.Empty;
-            }
-
-        } while (string.IsNullOrEmpty(mailTitle));
-
+        var mailTitle = await GetAnswer("title");
         await Speak($"The mail title is: {mailTitle}");
 
         await Speak("Please, give the mail body");
         string mailBody = string.Empty;
+        string searchForBodyIs;
 
         do
         {
@@ -213,16 +173,45 @@ public class Secretary : BaseSecretary
             {
                 mailBody = $"{mailBody} {word}";
 
-                searchForTitileIs = SymSpellAlgorithm.FindBestSuggestion(word, _symSpells["body"]);
+                searchForBodyIs = SymSpellAlgorithm.FindBestSuggestion(word, _symSpells["body"]);
 
-                if (searchForTitileIs == "body")
+                if (word == "body")
                     mailBody = string.Empty;
-                else if (searchForTitileIs == "is")
+                else if (word == "is")
                     mailBody = string.Empty;
             }
 
         } while (string.IsNullOrEmpty(mailBody));
 
         await Speak($"The mail body is: {mailBody}");
+    }
+
+    private async Task<string> GetAnswer(string symSpellKey)
+    {
+        string answer = string.Empty;
+        string aproximateAnswer;
+
+        do
+        {
+            var listenToAnswer = Helpers.SplitToWords(await Listen());
+
+            if (!listenToAnswer.Any())
+                continue;
+
+            foreach (string word in listenToAnswer)
+            {
+                answer = $"{answer} {word}";
+
+                aproximateAnswer = SymSpellAlgorithm.FindBestSuggestion(word, _symSpells[symSpellKey], 0);
+
+                if (string.IsNullOrEmpty(aproximateAnswer))
+                    continue;
+
+                answer = string.Empty;
+            }
+
+        } while (string.IsNullOrEmpty(answer));
+
+        return answer;
     }
 }
