@@ -1,6 +1,7 @@
 ﻿using Microsoft.CognitiveServices.Speech.Audio;
 using Microsoft.CognitiveServices.Speech;
 using Molly.StringApproxAlgorithms;
+using System.Text;
 
 namespace Molly;
 
@@ -8,19 +9,20 @@ public interface ISecretary
 {
     Task<string> Listen();
     Task Speak(string text);
-    Task SearchCommands(string recognizedText, string symSpellKey, bool useMollyName = true);
+    Task SearchForCommands(string recognizedText, string symSpellKey, bool useMollyName = true);
 }
 
 public abstract class BaseSecretary : ISecretary
 {
-    public string Name = "Molly";
-    public readonly string ListenLanguage = "en-US";
-    public readonly string SpeakLanguage = "en";
-    public readonly string Voice = "en-US-AshleyNeural";
     protected readonly AuthenticationSettings _settings;
-    public readonly Dictionary<string, SymSpell> _symSpells = new();
     protected readonly SpeechConfig _listenConfig;
     protected readonly SpeechConfig _speakConfig;
+    protected readonly Dictionary<string, SymSpell> _symSpells = new();
+    
+    public string Name { get; set; } = "Molly";
+    public string ListenLanguage { get; } = "en-US";
+    public string SpeakLanguage { get; } = "en";
+    public string Voice { get; } = "en-US-AshleyNeural";
 
     public BaseSecretary(AuthenticationSettings settings)
     {
@@ -29,9 +31,6 @@ public abstract class BaseSecretary : ISecretary
         _symSpells.Add("name", SymSpellFactory.CreateSymSpell(new() { Name }));
         _symSpells.Add("continue", SymSpellFactory.CreateSymSpell(new() { "yes", "no" }));
         _symSpells.Add("newLine", SymSpellFactory.CreateSymSpell(new() { "new", "line" }));
-        _symSpells.Add("mailTargets", SymSpellFactory.CreateSymSpell(@$"{GeneralSettings.Path}\SymSpell\mailTargets.txt", 4));
-        _symSpells.Add("title", SymSpellFactory.CreateSymSpell(new() { "title", "is" }));
-        _symSpells.Add("body", SymSpellFactory.CreateSymSpell(new() { "body", "is" }));
         _speakConfig = ConfigureSpeaking();
         _listenConfig = ConfigureListening();
     }
@@ -59,14 +58,13 @@ public abstract class BaseSecretary : ISecretary
     }
 
     public abstract Task<string> Listen();
-
     public abstract Task Speak(string text);
-    public abstract Task SearchCommands(string recognizedText, string symSpellKey, bool useMollyName = true);
+    public abstract Task SearchForCommands(string recognizedText, string symSpellKey, bool useMollyName = true);
 }
 
 public class Secretary : BaseSecretary
 {
-    private int _writeMail = 0;
+    private int _makeNote = 0;
 
     public Secretary(AuthenticationSettings settings) 
         : base(settings)
@@ -94,7 +92,7 @@ public class Secretary : BaseSecretary
         await speechSynthesizer.SpeakTextAsync(text);
     }
 
-    public override async Task SearchCommands(string recognizedText, string symSpellKey, bool useMollyName = true)
+    public override async Task SearchForCommands(string recognizedText, string symSpellKey, bool useMollyName = true)
     {
         var listOfWords = Helpers.SplitToWords(recognizedText);
 
@@ -125,92 +123,68 @@ public class Secretary : BaseSecretary
     private async Task ExecuteCommand(string command)
     {
         if (command == "hello")
-            await Speak("Hello Marek. How are you?");
+        {
+            await Speak("Hello Mark. How are you?");
+        }
         else if (command == "goodbye")
         {
-            await Speak("Goodbye Marek. See you next time?");
+            await Speak("Goodbye Mark. See you next time?");
             System.Environment.Exit(0);
         }
-        else if (command == "write")
+        else if (command == "make")
         {
-            _writeMail++;
+            _makeNote++;
         }
-        else if (command == "mail")
+        else if (command == "note")
         {
-            _writeMail++;
+            _makeNote++;
         }
 
-        if (_writeMail == 2)
+        if (_makeNote == 2)
         {
-            _writeMail = 0;
-            await WriteMail();
+            _makeNote = 0;
+            (string mailTarget, string body) = await MakeNote();
+            SaveNote(mailTarget, body);
         }
     }
 
-    private async Task WriteMail()
+    private void SaveNote(string name, string body)
     {
-
-        await Speak("Please, give the mail target");
-        var mailTarget = await GetAnswer("mailTargets");
-        await Speak($"The mail target is: {mailTarget}");
-
-        await Speak("Please, give the mail title");
-        var mailTitle = await GetAnswer("title");
-        await Speak($"The mail title is: {mailTitle}");
-
-        await Speak("Please, give the mail body");
-        string mailBody = string.Empty;
-        string searchForBodyIs;
-
-        do
-        {
-            var listenToMailBody = Helpers.SplitToWords(await Listen());
-
-            if (!listenToMailBody.Any())
-                continue;
-
-            foreach (string word in listenToMailBody)
-            {
-                mailBody = $"{mailBody} {word}";
-
-                searchForBodyIs = SymSpellAlgorithm.FindBestSuggestion(word, _symSpells["body"]);
-
-                if (word == "body")
-                    mailBody = string.Empty;
-                else if (word == "is")
-                    mailBody = string.Empty;
-            }
-
-        } while (string.IsNullOrEmpty(mailBody));
-
-        await Speak($"The mail body is: {mailBody}");
+        using FileStream file = File.Create($"{GeneralSettings.Path}{name}.txt");
+        byte[] bodyInBytes = new UTF8Encoding(true).GetBytes(body);
+        file.Write(bodyInBytes, 0, bodyInBytes.Length);
     }
 
-    private async Task<string> GetAnswer(string symSpellKey)
+    private async Task<(string noteName, string body)> MakeNote()
     {
-        string answer = string.Empty;
-        string aproximateAnswer;
+        await Speak("Please, give the note name");
+        var noteName = await ListenForAnswer("name is");
+        await Speak($"The note name is: {noteName}");
 
-        do
+        await Speak("Please, give the note body");
+        var noteBody = await ListenForAnswer("body is");
+        await Speak($"The note body is: {noteBody}");
+
+        return (noteName, noteBody);
+    }
+
+    private async Task<string> ListenForAnswer(string textAfter)
+    {
+        string answer;
+
+        while (string.IsNullOrEmpty((answer = await Listen())))
         {
-            var listenToAnswer = Helpers.SplitToWords(await Listen());
+        }
 
-            if (!listenToAnswer.Any())
-                continue;
+        if (answer.Contains(textAfter, StringComparison.CurrentCultureIgnoreCase))
+        {
+            int indexFrom = answer.IndexOf(textAfter) + textAfter.Length + 1;
+            
+            if (indexFrom >= answer.Length)
+                return await ListenForAnswer(textAfter);
 
-            foreach (string word in listenToAnswer)
-            {
-                answer = $"{answer} {word}";
-
-                aproximateAnswer = SymSpellAlgorithm.FindBestSuggestion(word, _symSpells[symSpellKey], 0);
-
-                if (string.IsNullOrEmpty(aproximateAnswer))
-                    continue;
-
-                answer = string.Empty;
-            }
-
-        } while (string.IsNullOrEmpty(answer));
+            return answer[indexFrom..^1];
+        }
 
         return answer;
     }

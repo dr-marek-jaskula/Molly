@@ -15,5 +15,5 @@ ISecretary molly = new Secretary(authenticationSettings);
 while (true)
 {
     string recognizedText = await molly.Listen();
-    await molly.SearchCommands(recognizedText, "commands");
+    await molly.SearchForCommands(recognizedText, "commands");
 }
