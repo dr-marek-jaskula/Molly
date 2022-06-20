@@ -33,18 +33,4 @@ public class SymSpellAlgorithm
         var suggestions = symSpell.Lookup(name, Verbosity.Closest, maxEditDistance);
         return suggestions.Take(count).Select(s => s.term).ToList();
     }
-
-    /// <summary>
-    /// Provides the string segmentation - decomposes the characters to meaningful words
-    /// </summary>
-    /// <param name="inputTerm">Term to be segmented, preferred input should contain non segmented text without misspellings</param>
-    /// <param name="symSpell">SymSpell object containing the dictionary to which name is approximated</param>
-    /// <param name="maxEditDistance">>Distance from the strings in inputTerm</param>
-    /// <returns>The segmented string</returns>
-    public static string WordSegmentation(string inputTerm, SymSpell symSpell, int maxEditDistance = 0)
-    {
-        //word segmentation and correction for multi-word input strings with/without spaces
-        var suggestion = symSpell.WordSegmentation(inputTerm, maxEditDistance);
-        return suggestion.correctedString;
-    }
 }

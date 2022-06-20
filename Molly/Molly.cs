@@ -42,7 +42,7 @@ public abstract class BaseSecretary : ISecretary
         ListenLanguage = listenLanguage;
     }
 
-    protected SpeechConfig ConfigureSpeaking()
+    private SpeechConfig ConfigureSpeaking()
     {
         var speakConfig = SpeechConfig.FromSubscription(_settings.Key, _settings.Region);
         speakConfig.SpeechRecognitionLanguage = SpeakLanguage;
@@ -50,7 +50,7 @@ public abstract class BaseSecretary : ISecretary
         return speakConfig;
     }
 
-    protected SpeechConfig ConfigureListening()
+    private SpeechConfig ConfigureListening()
     {
         var listenConfig = SpeechConfig.FromSubscription(_settings.Key, _settings.Region);
         listenConfig.SpeechRecognitionLanguage = ListenLanguage;
@@ -64,16 +64,18 @@ public abstract class BaseSecretary : ISecretary
 
 public class Secretary : BaseSecretary
 {
-    private int _makeNote = 0;
+    private Dictionary<string, Command> _commands = new();
 
     public Secretary(AuthenticationSettings settings) 
         : base(settings)
     {
+        SetCommands();
     }
 
     public Secretary(AuthenticationSettings settings, string language, string voice, string listenLanguage) 
         : base(settings, language, voice, listenLanguage)
     {
+        SetCommands();
     }
 
     public override async Task<string> Listen()
@@ -116,35 +118,8 @@ public class Secretary : BaseSecretary
             if (string.IsNullOrEmpty(command))
                 continue;
 
-            await ExecuteCommand(command);
-        }
-    }
-
-    private async Task ExecuteCommand(string command)
-    {
-        if (command == "hello")
-        {
-            await Speak("Hello Mark. How are you?");
-        }
-        else if (command == "goodbye")
-        {
-            await Speak("Goodbye Mark. See you next time?");
-            System.Environment.Exit(0);
-        }
-        else if (command == "make")
-        {
-            _makeNote++;
-        }
-        else if (command == "note")
-        {
-            _makeNote++;
-        }
-
-        if (_makeNote == 2)
-        {
-            _makeNote = 0;
-            (string mailTarget, string body) = await MakeNote();
-            SaveNote(mailTarget, body);
+            _commands["hello"].SetTrigger(command);
+            await _commands[command].Invoke();
         }
     }
 
@@ -187,5 +162,28 @@ public class Secretary : BaseSecretary
         }
 
         return answer;
+    }
+
+    private void SetCommands()
+    {
+        _commands.Add("hello", new("Molly will say hello and ask how are you", new() { "hello" },
+            async () => 
+            {
+                await Speak("Hello Mark. How are you?");
+            }));
+
+        _commands.Add("SayGoodbye", new("Molly will say goodbye and then end the program", new() { "goodbye" },
+            async () =>
+            {
+                await Speak("Goodbye Mark. See you next time?");
+                System.Environment.Exit(0);
+            }));
+
+        _commands.Add("MakeNote", new("Molly will make a note preceded by questions about note title and body", new() { "make", "note" },
+            async () =>
+            {
+                (string mailTarget, string body) = await MakeNote();
+                SaveNote(mailTarget, body);
+            }));
     }
 }
