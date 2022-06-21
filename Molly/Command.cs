@@ -2,14 +2,15 @@
 
 public class Command
 {
-    public Func<Task> _Executable { get; set; }
+    private readonly Func<Task> _executable;
+
     public string Description { get; set; } = string.Empty;
-    public List<(string trigger, bool wasUsed)> Triggers { get; set; } = new();
+    public Dictionary<string, bool> TriggersWithState { get; set; } = new();
 
     public Command(List<string> triggers, Func<Task> executable)
     {
-        Triggers = triggers.Select(t => (t, false)).ToList();
-        _Executable = executable;
+        triggers.ForEach(t => TriggersWithState[t] = false);
+        _executable = executable;
     }
 
     public Command(string description, List<string> triggers, Func<Task> executable) : this(triggers, executable)
@@ -19,21 +20,22 @@ public class Command
 
     public async Task Invoke()
     {
-        if (Triggers.All(t => t.wasUsed))
+        if (TriggersWithState.All(t => t.Value))
         {
-            await _Executable.Invoke();
+            await _executable.Invoke();
             ResetTriggers();
         }
     }
 
     public void SetTrigger(string trigger)
     {
-        var foundtrigger = Triggers.First(t => t.trigger == trigger);
-        foundtrigger.wasUsed = true;
+        if (TriggersWithState.ContainsKey(trigger))
+            TriggersWithState[trigger] = true;
     }
 
-    private void ResetTriggers()
+    public void ResetTriggers()
     {
-        Triggers.ForEach(t => t.wasUsed = false);
+        foreach (var triggerWithState in TriggersWithState)
+            TriggersWithState[triggerWithState.Key] = false;
     }
 }

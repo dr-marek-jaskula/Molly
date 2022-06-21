@@ -64,7 +64,7 @@ public abstract class BaseSecretary : ISecretary
 
 public class Secretary : BaseSecretary
 {
-    private Dictionary<string, Command> _commands = new();
+    private readonly Dictionary<string, Command> _commands = new();
 
     public Secretary(AuthenticationSettings settings) 
         : base(settings)
@@ -109,18 +109,21 @@ public class Secretary : BaseSecretary
             listOfWords.RemoveAt(0);
         }
 
-        string command;
+        string heardCommand;
 
         foreach (string word in listOfWords)
         {
-            command = SymSpellAlgorithm.FindBestSuggestion(word, _symSpells[symSpellKey]);
+            heardCommand = SymSpellAlgorithm.FindBestSuggestion(word, _symSpells[symSpellKey]);
 
-            if (string.IsNullOrEmpty(command))
+            if (string.IsNullOrEmpty(heardCommand))
                 continue;
 
-            _commands["hello"].SetTrigger(command);
-            await _commands[command].Invoke();
+            _commands[heardCommand].SetTrigger(heardCommand);
+            await _commands[heardCommand].Invoke();
         }
+
+        foreach (var command in _commands)
+            command.Value.ResetTriggers();
     }
 
     private void SaveNote(string name, string body)
@@ -172,7 +175,7 @@ public class Secretary : BaseSecretary
                 await Speak("Hello Mark. How are you?");
             }));
 
-        _commands.Add("SayGoodbye", new("Molly will say goodbye and then end the program", new() { "goodbye" },
+        _commands.Add("goodbye", new("Molly will say goodbye and then end the program", new() { "goodbye" },
             async () =>
             {
                 await Speak("Goodbye Mark. See you next time?");
