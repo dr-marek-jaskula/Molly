@@ -110,6 +110,7 @@ public class Secretary : BaseSecretary
         }
 
         string heardCommand;
+        string commandKey;
 
         foreach (string word in listOfWords)
         {
@@ -118,12 +119,23 @@ public class Secretary : BaseSecretary
             if (string.IsNullOrEmpty(heardCommand))
                 continue;
 
-            _commands[heardCommand].SetTrigger(heardCommand);
-            await _commands[heardCommand].Invoke();
+            commandKey = FindCommandKey(heardCommand);
+
+            _commands[commandKey].SetTrigger(heardCommand);
+            await _commands[commandKey].Invoke();
         }
 
         foreach (var command in _commands)
             command.Value.ResetTriggers();
+    }
+
+    private string FindCommandKey(string heardCommand)
+    {
+        foreach (var commandKey in _commands.Keys)
+            if (commandKey.Contains(heardCommand))
+                return commandKey;
+
+        throw new ArgumentException("No command key fits the heard command");
     }
 
     private void SaveNote(string name, string body)
@@ -182,7 +194,7 @@ public class Secretary : BaseSecretary
                 System.Environment.Exit(0);
             }));
 
-        _commands.Add("MakeNote", new("Molly will make a note preceded by questions about note title and body", new() { "make", "note" },
+        _commands.Add("make note", new("Molly will make a note preceded by questions about note title and body", new() { "make", "note" },
             async () =>
             {
                 (string mailTarget, string body) = await MakeNote();
