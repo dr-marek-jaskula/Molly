@@ -1,19 +1,33 @@
 ﻿using Molly;
+using Molly.Authentication;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Molly.Secretary;
+using Molly.Handlers;
+
+var services = new ServiceCollection();
 
 var configuration = new ConfigurationBuilder()
     .AddJsonFile($"{GeneralSettings.Path}appsettings.json")
     .AddUserSecrets<Program>()
     .Build();
 
-AuthenticationSettings authenticationSettings = new(
-    configuration["AuthenticationSettings:key"],
-    configuration["AuthenticationSettings:region"]);
+services.RegisterAuthentication(configuration.ConfigureAuthentication());
 
-ISecretary molly = new Secretary(authenticationSettings);
+services.AddSingleton<ISecretary, Secretary>();
 
-while (true)
+services.AddCommandHandlers(typeof(Program).Assembly);
+
+services.AddSingleton<Application>();
+
+var serviceProvider = services.BuildServiceProvider();
+
+var application = serviceProvider.GetRequiredService<Application>();
+
+await application.RunAsync();
+
+public static class GeneralSettings
 {
-    string recognizedText = await molly.Listen();
-    await molly.SearchForCommands(recognizedText, "commands");
+    public static readonly string Path =
+        AppDomain.CurrentDomain.BaseDirectory.Split(@"bin\", StringSplitOptions.None)[0];
 }
