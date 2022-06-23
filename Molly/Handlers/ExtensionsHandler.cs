@@ -5,11 +5,11 @@ using System.Reflection;
 
 namespace Molly.Handlers;
 
-public static class HandlerExtensions
+public static class ExtensionsHandler
 {
     public static void AddCommandHandlers(this IServiceCollection services, Assembly assembly)
     {
-        services.TryAddSingleton<HandlerOrchestrator>();
+        services.TryAddSingleton<OrchestratorHandler>();
 
         var commandTypes = GetCommandTypesForAssembly(assembly);
 

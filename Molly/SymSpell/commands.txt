@@ -1,4 +1,0 @@
-﻿hello
-make
-note
-goodbye

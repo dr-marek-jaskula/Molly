@@ -7,9 +7,9 @@ namespace Molly.Secretary;
 public abstract class BaseSecretary : ISecretary
 {
     private readonly AuthenticationSettings _settings;
-    private readonly string SpeakLanguage = "en";
-    private readonly string Voice = "en-US-AshleyNeural";
-    private readonly string ListenLanguage = "en-US";
+    private readonly string _speakLanguage = "en";
+    private readonly string _voice = "en-US-AshleyNeural";
+    private readonly string _listenLanguage = "en-US";
 
     protected readonly SpeechConfig _listenConfig;
     protected readonly SpeechConfig _speakConfig;
@@ -20,7 +20,6 @@ public abstract class BaseSecretary : ISecretary
     protected BaseSecretary(AuthenticationSettings settings)
     {
         _settings = settings;
-        _symSpells.Add("commands", SymSpellFactory.CreateSymSpell(@$"{GeneralSettings.Path}\SymSpell\commands.txt", 4));
         _symSpells.Add("name", SymSpellFactory.CreateSymSpell(new() { Name }));
         _speakConfig = ConfigureSpeaking();
         _speakConfig = ConfigureSpeaking();
@@ -30,19 +29,23 @@ public abstract class BaseSecretary : ISecretary
     private SpeechConfig ConfigureSpeaking()
     {
         var speakConfig = SpeechConfig.FromSubscription(_settings.Key, _settings.Region);
-        speakConfig.SpeechRecognitionLanguage = SpeakLanguage;
-        speakConfig.SpeechSynthesisVoiceName = Voice;
+        speakConfig.SpeechRecognitionLanguage = _speakLanguage;
+        speakConfig.SpeechSynthesisVoiceName = _voice;
         return speakConfig;
     }
 
     private SpeechConfig ConfigureListening()
     {
         var listenConfig = SpeechConfig.FromSubscription(_settings.Key, _settings.Region);
-        listenConfig.SpeechRecognitionLanguage = ListenLanguage;
+        listenConfig.SpeechRecognitionLanguage = _listenLanguage;
         return listenConfig;
     }
 
     public abstract Task<string> Listen();
+
     public abstract Task Speak(string text);
+
     public abstract Task SearchForCommands(string recognizedText, string symSpellKey, bool useMollyName = true);
+
+    public abstract Task<string> ListenForAnswer(string textAfter);
 }
