@@ -16,7 +16,7 @@ public class HelloCommand : CommandBase
 
         if (_triggers.All(t => t.Value))
         {
-            await secretary.Speak("Hello Mark. How are you?");
+            await secretary.Speak("Hello. How are you?");
             ResetTriggers();
         }
     }

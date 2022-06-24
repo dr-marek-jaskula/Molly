@@ -16,7 +16,7 @@ public class GoodbyeCommand : CommandBase
 
         if (_triggers.All(t => t.Value))
         {
-            await secretary.Speak("Goodbye Mark. See you next time.");
+            await secretary.Speak("Goodbye. See you next time.");
             Environment.Exit(0);
         }
     }
