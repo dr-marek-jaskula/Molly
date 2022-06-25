@@ -16,7 +16,7 @@ services.RegisterAuthentication(configuration.ConfigureAuthentication());
 
 services.AddSingleton<ISecretary, Secretary>();
 
-services.AddCommandHandlers(typeof(Program).Assembly);
+services.AddCommands(typeof(Program).Assembly);
 
 services.AddSingleton<Application>();
 

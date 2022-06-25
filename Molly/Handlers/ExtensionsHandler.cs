@@ -7,7 +7,7 @@ namespace Molly.Handlers;
 
 public static class ExtensionsHandler
 {
-    public static void AddCommandHandlers(this IServiceCollection services, Assembly assembly)
+    public static void AddCommands(this IServiceCollection services, Assembly assembly)
     {
         services.TryAddSingleton<OrchestratorHandler>();
 
@@ -20,6 +20,8 @@ public static class ExtensionsHandler
     public static IEnumerable<TypeInfo> GetCommandTypesForAssembly(Assembly assembly)
     {
         return assembly.DefinedTypes
-            .Where(type => !type.IsAbstract && typeof(ICommand).IsAssignableFrom(type) && type.BaseType == typeof(CommandBase));
+            .Where(type => !type.IsAbstract 
+                    && typeof(ICommand).IsAssignableFrom(type) 
+                    && type.BaseType == typeof(CommandBase));
     }
 }

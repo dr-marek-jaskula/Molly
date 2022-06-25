@@ -1,12 +1,12 @@
 ﻿using Molly.Secretary;
 
-namespace Molly.Commands;
+namespace Molly.Commands.CustomCommands;
 
-public class HelloCommand : CommandBase
+public class GoodbyeCommand : CommandBase
 {
-    public HelloCommand()
+    public GoodbyeCommand()
     {
-        _triggers.Add("hello", false);
+        _triggers.Add("goodbye", false);
     }
 
     public override async Task InvokeAsync(ISecretary? secretary)
@@ -16,8 +16,8 @@ public class HelloCommand : CommandBase
 
         if (_triggers.All(t => t.Value))
         {
-            await secretary.Speak("Hello. How are you?");
-            ResetTriggers();
+            await secretary.Speak("Goodbye. See you next time.");
+            Environment.Exit(0);
         }
     }
 }

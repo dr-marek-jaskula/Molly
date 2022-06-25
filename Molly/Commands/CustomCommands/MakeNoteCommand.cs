@@ -1,7 +1,7 @@
 ﻿using Molly.Secretary;
 using System.Text;
 
-namespace Molly.Commands;
+namespace Molly.Commands.CustomCommands;
 
 public class MakeNoteCommand : CommandBase
 {
